@@ -1,0 +1,15 @@
+#sl-no-exist-user{
+    width: 100%
+}
+#sl-no-exist-user-role{
+    width: 100%
+}
+
+#g-info-table >tbody >tr >td{
+    height: 60px;
+    max-height: 60px;
+}
+
+table  tr:hover{
+    background-color: #CAE1FF;
+}
