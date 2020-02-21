@@ -4,152 +4,107 @@ import os
 import subprocess
 
 
-def call(*args, **kwargs):
 
-    kwargs['stdout'] = subprocess.PIPE
-    kwargs['stderr'] = subprocess.PIPE
-    p = subprocess.Popen(*args, **kwargs)
-    stdout, stderr = p.communicate()
-    return p.returncode, stdout, stderr
+def shell(*args, **kw):
+    kw['stdout'] = subprocess.PIPE
+    kw['stderr'] = subprocess.PIPE
+
+    p = subprocess.Popen(*args, *kw)
+    sout, serr = p.communicate()
+
+    return p.returncode, sout, serr
 
 
-class GitCloneError(Exception):
+class CloneError(Exception):
     pass
 
 
-class GitFetchError(Exception):
+class PullError(Exception):
     pass
 
 
-class GitResetError(Exception):
+class CheckoutError(Exception):
     pass
 
 
-class GitSubmoduleError(Exception):
-    pass
-
-
-class GitAddtagError(Exception):
-    pass
-
-
-class GitPushtagError(Exception):
-    pass
-
-
-class GitBranchError(Exception):
-    pass
-
-
-class GitcheckoutBranchError(Exception):
+class CommitError(Exception):
     pass
 
 
 class Git:
-    """
-    Clone project 
-    Pull project
-    Checkout branch and create new branch 
-    """
+    def __init__(self, url, path):
+        self.url = url
+        self.base_dir = path
 
-    def __init__(self, gitAddr, proPath=None):
-        self.gitAddr = gitAddr
-        self.baseDir = proPath
+    def __metaname(self):
+        return self.url.split('/')[-1].split['.'][0]
 
-    def getMetaName(self):
-        return self.gitAddr.split("/")[-1].split(".")[0]
-
-    def getMetaPath(self):
-        if self.baseDir:
-            baseDir = self.baseDir
-        else:
-            baseDir = os.path.dirname(os.path.abspath(__file__))
-        return baseDir + "/" + self.getMetaName()
-
-    def clone(self):
-        os.chdir(self.baseDir)
-        cmd = "git clone --recursive " + self.gitAddr
-        code, stdout, stderr = call(cmd, shell=True, cwd=os.getcwd())
+    def clone(self, path=None):
+        if not path:
+            raise CloneError('invalid clone path')
+        
+        cmd = 'git clone --recursive '+ self.url
+        code, _, err = shell(cmd, shell=True, cwd=os.getcwd())
         if code != 0:
-            raise GitCloneError(str(stderr))
-        return True
+            raise CloneError()
 
-    def pull(self, branch):
-        metaPath = self.getMetaPath()
+    def pull(self, br='master'):
+        md = os.path.join(self.base_dir, self.__metaname())
+        step1 = 'git fetch origin'
+        step2 = 'git reset --hard origin/' + br
+        step3 = 'git submodule update --init --recursive'
+        
+        cmds = (step1, step2, step3)
+        for cmd in cmds:
+            code, _, err = shell(cmd, shell=True, cwd=os.chdir(md))
+            if code != 0:
+                raise PullError(err)
+        
+    def __get_all_br(self):
+        md = os.path.join(self.base_dir, self.__metaname())
+        code, stdout, err = shell('git branch', shell=True, cwd=os.chdir(md))
+        if code != 0 :
+            return err
 
-        cmd = "git fetch origin"
-        code, stdout, stderr = call(cmd, shell=True, cwd=os.chdir(metaPath))
-        if code != 0:
-            raise GitFetchError(str(stderr))
-        cmd = "git reset --hard origin/" + branch
-        code, stdout, stderr = call(cmd, shell=True, cwd=os.chdir(metaPath))
-        if code != 0:
-            raise GitResetError(str(stderr))
-        cmd = "git submodule update --init --recursive"
-        code, stdout, stderr = call(cmd, shell=True, cwd=os.chdir(metaPath))
-        if code != 0:
-            raise GitSubmoduleError(str(stderr))
-        return True
-
-    def addTag(self, tag):
-        metaPath = self.getMetaPath()
-
-        cmd = "git tag " + tag
-        code, stdout, stderr = call(cmd, shell=True, cwd=os.chdir(metaPath))
-        if code != 0:
-            print stderr, stdout
-            print stderr, stdout
-            print stderr, stdout
-            print stderr, stdout
-            raise GitAddtagError(str(stderr))
-        return True
-
-    def pushTag(self, tag):
-        metaPath = self.getMetaPath()
-
-        cmd = "git push " + self.gitAddr + " " + tag
-        code, stdout, stderr = call(cmd, shell=True, cwd=os.chdir(metaPath))
-        if code != 0:
-            raise GitPushtagError(str(stderr))
-        return True
-
-    def getBranches(self):
-        metaPath = self.getMetaPath()
-        branches = []
-
-        cmd = "git branch"
-        code, stdout, stderr = call(cmd, shell=True, cwd=os.chdir(metaPath))
-        if code != 0:
-            raise GitBranchError(str(stderr))
-        ret = stdout.split('\n')[0:-1]
-        for b in ret:
-            if b.startswith("* "):
-                branches.append(b.split('* ')[1])
+        result = stdout.split('\n')[0:-1]
+        brs = []
+        for item in result:
+            if item.startswith('* '):
+                brs.append(item.split('* ')[1])
             else:
-                branches.append(b.strip())
-        return branches
+                brs.append(item.strip())
+        
+        return brs
 
-    def checkoutBranch(self, branch):
-        metaPath = self.getMetaPath()
-        branches = self.getBranches()
+    def checkout(self, br):
+        md = os.path.join(self.base_dir, self.__metaname())
+        code, stdout, err = shell('git branch', shell=True, cwd=os.chdir(md))
+        if code != 0 :
+            raise CheckoutError(err)
 
-        if branch in branches:
-            cmd = "git checkout " + branch
+        result = stdout.split('\n')[0:-1]
+        brs = []
+        for item in result:
+            if item.startswith('* '):
+                brs.append(item.split('* ')[1])
+            else:
+                brs.append(item.strip())
+
+        if br in brs:
+            cmd = 'git checkout ' + br
         else:
-            cmd = "git checkout -b " + branch
-        code, stdout, stderr = call(cmd, shell=True, cwd=os.chdir(metaPath))
-        if code != 0:
-            raise GitcheckoutBranchError(str(stderr))
-        return True
+            cmd = 'git checkout -b ' + br
 
-    def getCommitInfo(self):
-        metaPath = self.getMetaPath()
+        code, _, err = shell(cmd, shell=True, cwd=os.chdir(md))
+        if code != 0:
+            raise CheckoutError(err)
+
+    def get_commit(self):
+        md = os.path.join(self.base_dir, self.__metaname())
         cmd = "git log  --pretty=format:'%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset' --abbrev-commit -n 10"
-        code, stdout, stderr = call(cmd, shell=True, cwd=os.chdir(metaPath))
-
+        code, _, err = shell(cmd, shell=True, cwd=os.chdir(md))
         if code != 0:
-            return stderr
-        return stdout
+            raise CommitError(err)
 
 
 
