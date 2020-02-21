@@ -83,7 +83,7 @@ DATABASES = {
         'HOST': '127.0.0.1',
         'PORT': 3306,
         'USER': 'root',
-        'PASSWORD': '123',
+        'PASSWORD': '',
         'CONN_MAX_AGE': 5,
         'TIME_ZONE': 'Asia/Shanghai',
 
