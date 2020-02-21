@@ -59,22 +59,6 @@ class Git:
             code, _, err = shell(cmd, shell=True, cwd=os.chdir(md))
             if code != 0:
                 raise PullError(err)
-        
-    def __get_all_br(self):
-        md = os.path.join(self.base_dir, self.__metaname())
-        code, stdout, err = shell('git branch', shell=True, cwd=os.chdir(md))
-        if code != 0 :
-            return err
-
-        result = stdout.split('\n')[0:-1]
-        brs = []
-        for item in result:
-            if item.startswith('* '):
-                brs.append(item.split('* ')[1])
-            else:
-                brs.append(item.strip())
-        
-        return brs
 
     def checkout(self, br):
         md = os.path.join(self.base_dir, self.__metaname())
