@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/3.0/ref/settings/
 """
 
 import os
+import cfg
 
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -25,7 +26,7 @@ SECRET_KEY = 'o9kku&^2j%gsemxf)2o7gayq4)fuy%x6gce2q^f7egnc&=@ih_'
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['127.0.0.1']
 
 
 # Application definition
@@ -37,6 +38,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'rest_framework',
     'app.user',
     'app.asset',
     'app.project',
@@ -79,11 +81,11 @@ WSGI_APPLICATION = 'scm.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
-        'NAME': 'scm',
-        'HOST': '127.0.0.1',
-        'PORT': 3306,
-        'USER': 'root',
-        'PASSWORD': '',
+        'NAME': cfg.MYSQL['DATABASE'],
+        'HOST': cfg.MYSQL['HOST'],
+        'PORT': cfg.MYSQL['PORT'],
+        'USER': cfg.MYSQL['USER'],
+        'PASSWORD': cfg.MYSQL['PASSWORD'],
         'CONN_MAX_AGE': 5,
         'TIME_ZONE': 'Asia/Shanghai',
 
@@ -133,3 +135,5 @@ STATIC_URL = '/static/'
 STATICFILES_DIRS = ("%s/%s" % (BASE_DIR, "static"), )
 
 AUTH_USER_MODEL='user.UserModel'
+
+APPEND_SLASH=False

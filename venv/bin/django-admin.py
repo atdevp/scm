@@ -1,4 +1,4 @@
-#!/Users/lili/workspace/scm/venv/bin/python
+#!/Users/ad/workspace/scm/venv/bin/python
 from django.core import management
 
 if __name__ == "__main__":

@@ -1,17 +1,19 @@
 from django.db import models
+from django.db.models import Max
 
 # Create your models here.
 
+
 class ProjectModel(models.Model):
 
-    PROJECT_TYPE_CHOICES = ((1, "jar"), (2, "war"))
+    PROJECT_TYPE_CHOICES = ((1, "jar"), (2, "war"), (3, "zip"))
 
     name = models.CharField(unique=True, max_length=50, db_index=True, default='')
     url = models.CharField(max_length=200, null=False, blank=False)
-    p_type = models.IntegerField(choices=PROJECT_TYPE_CHOICES, default=1)
+    p_type = models.CharField(max_length=5, null=False, blank=False)
     creator = models.EmailField()
     br = models.CharField(null=False, blank=False, default='master', max_length=20)
-    tag = models.CharField(max_length=15, blank=False, null=False, default='v0')
+    tag = models.CharField(max_length=15, blank=False, null=False, default='')
     add_date = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -21,19 +23,20 @@ class ProjectModel(models.Model):
 
 class PackageLogModel(models.Model):
 
-    ENV_CHOICES = ((1, 'online'), (2, 'test'), (3, 'dev'))
-    
     project = models.ForeignKey('ProjectModel', on_delete=models.CASCADE)
     br = models.CharField(null=False, blank=False, max_length=20)
-    module = models.CharField(null=False, blank=False, max_length=20)
-    env = models.IntegerField(choices=ENV_CHOICES, default=3)
-    tag = models.CharField(max_length=15, blank=False, null=False)
+    module = models.CharField(null=True, blank=True, max_length=20, default='')
+    env = models.CharField(max_length=12, blank=False, null=False)
+    tag = models.IntegerField(null=True, blank=True, default=1)
+    msg = models.CharField(max_length=200, blank=True, null=True, default='')
     ptime = models.DateTimeField(auto_now_add=True)
     puser = models.EmailField()
-    
+
     class Meta:
         db_table = 'tb_ci_log'
+        ordering = ['-ptime']
         managed = True
+        unique_together = ['project', 'module', 'tag', 'ptime']
 
 
 class UserProjectModel(models.Model):
@@ -52,3 +55,18 @@ class GroupProjectModel(models.Model):
     class Meta:
         db_table = 'tb_group_project'
         managed = True
+
+
+# Get lastest tag number then return tag + 1
+def get_new_tag(id):
+
+    new_tag = "v1"
+
+    if PackageLogModel.objects.filter(project_id=id).exists():
+        m = PackageLogModel.objects.filter(env='online').all().aggregate(Max('tag'))
+        if m['tag__max'] is None:
+            return new_tag 
+        if isinstance(m['tag__max'], int):
+            new_tag = 'v{0}'.format(m['tag__max']+1)
+
+    return new_tag
