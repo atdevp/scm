@@ -3,7 +3,7 @@
 
 source /etc/profile
 
-if [ $# != 2 ];then
+if [ $# != 7 ];then
     echo "Args is not enough. Now args is $#"
     echo "LogEnd"
     exit -1
