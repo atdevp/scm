@@ -28,16 +28,13 @@ class UserManager(BaseUserManager):
 
 class UserModel(AbstractBaseUser, PermissionsMixin):
 
-    ACTIVE_CHOICES = ((1, "active"), (2, "die"), )
-    ROLE_CHOICES = ((1, "admin"), (2, "team_leader"), (3, "user"), )
-    GROUP_CHOICES = ((1, "ops"), (2, "dev"), (3, "recom"),)
-
+    ACTIVE_CHOICES = ((1, "active"), (2, "lock"), )
+   
     email = models.EmailField(unique=True, db_index=True)
     username = models.CharField(max_length=30, default='')
     mobile = models.IntegerField(blank=True, null=False, default=0)
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
-    role = models.IntegerField(choices=ROLE_CHOICES, default=3, blank=True)
 
     REQUIRED_FIELDS = ['username']
     USERNAME_FIELD = 'email'
