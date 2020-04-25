@@ -5,7 +5,6 @@ from rest_framework import status
 from rest_framework.serializers import Serializer
 import cfg
 
-
 # delete directory or file on system
 def del_resource(d):
     if os.path.exists(d):
@@ -62,3 +61,26 @@ def get_save_path(env):
 
     if env == 'stating':
         return cfg.CICD_CFG['STATING_PACKAGE']
+
+# 判断可以是否存在Dict
+def isExistInDict(d, key):
+    if not isinstance(d, dict):
+        return False
+    
+    if not key:
+        return False
+
+    return key in d.keys()
+
+def _update_field(k, v):
+    getattr(k)
+    setattr(k, v)
+
+def jsonDataUpdateModel(model, jd, pk):
+    if not isinstance(jd, dict):
+        return
+    
+    ob = model.objects.get(id=pk)
+    for k, v in jd.items():
+        setattr(ob, k, v)
+    ob.save()

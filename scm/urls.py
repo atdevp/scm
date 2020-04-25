@@ -18,7 +18,8 @@ from django.urls import path, include
 from . import views
 
 api = [
-    path('api/v1/projects/', include('app.project.api.urls'))
+    path('api/v1/projects/', include('app.project.api.urls')),
+    path('api/v1/users/', include('app.user.api.urls'))
 ]
 
 web = [
