@@ -84,3 +84,11 @@ def jsonDataUpdateModel(model, jd, pk):
     for k, v in jd.items():
         setattr(ob, k, v)
     ob.save()
+
+
+def delLruCache(cache, key):
+    if not cache:
+        return
+    
+    if key in cache.keys():
+        del cache[key]

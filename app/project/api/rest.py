@@ -6,7 +6,8 @@ from app.project.models import get_new_tag
 from rest_framework import status
 from utils.ci import git
 from utils.cd import mvn
-from utils.func import del_resource, JsonResponse, get_save_path
+from utils.func import del_resource, JsonResponse, get_save_path, delLruCache
+from utils.func import jsonDataUpdateModel
 import cfg
 import os
 from django.db import transaction, DatabaseError
@@ -14,16 +15,22 @@ from utils.error import GeneratePakcageCommandError
 from scm.settings import BASE_DIR
 import traceback
 import time
+import pickle
+import pylru
+
+PROJECTLRUCACHE = pylru.lrucache(size=100)
 
 
 class ProjectList(APIView):
     def get(self, request, format=None):
+        if "projectlist" in PROJECTLRUCACHE:
+            data = pickle(PROJECTLRUCACHE['projectlist'])
+            return JsonResponse(data=sz.data, code=200, msg="success")
+
         projects = ProjectModel.objects.all()
         sz = ProjectSerializer(projects, many=True)
-        return JsonResponse(data=sz.data,
-                            code=200,
-                            msg="success",
-                            status=status.HTTP_200_OK)
+        PROJECTLRUCACHE['projectlist'] = pickle.dumps(sz.data)
+        return JsonResponse(data=sz.data, code=200, msg="success")
 
     def post(self, request, format=None):
         data = request.data
@@ -44,6 +51,7 @@ class ProjectList(APIView):
                                             p_type=p_type,
                                             creator="request.user.email")
             p.save()
+            delLruCache(PROJECTLRUCACHE,'projectlist')
         except DatabaseError as e:
             return JsonResponse(code=500, msg=str(e))
 
@@ -68,12 +76,13 @@ class ProjectDetail(APIView):
         return JsonResponse(data=sz.data, code=200, msg="success")
 
     def put(self, request, pk, format=None):
-        t = request.data['type']
         try:
-            ProjectModel.objects.filter(id=pk).update(p_type=t)
-            return JsonResponse(code=200, msg="success")
+            jsonDataUpdateModel(ProjectModel, jd, pk)
         except Exception as e:
             return JsonResponse(code=500, msg=str(e))
+        
+        delLruCache(PROJECTLRUCACHE,'projectlist')
+        return JsonResponse(code=200, msg="success")
 
     def delete(self, request, pk, format=None):
         try:
@@ -84,6 +93,7 @@ class ProjectDetail(APIView):
         except Exception as e:
             return JsonResponse(code=500, msg=str(e))
 
+        delLruCache(PROJECTLRUCACHE,'projectlist')
         return JsonResponse(code=200, msg="success")
 
 
@@ -100,9 +110,13 @@ class ProjectPostBuild(APIView):
             return JsonResponse(code=500, msg=str(e))
 
         nv = get_new_tag(pk)
-
-
-        return JsonResponse(data={"mods": mods, "new_tag": nv, "type": p.p_type},code=200, msg="success")
+        return JsonResponse(data={
+            "mods": mods,
+            "new_tag": nv,
+            "type": p.p_type
+        },
+                            code=200,
+                            msg="success")
 
     def post(self, request, pk, format=None):
         d = request.data
@@ -143,17 +157,16 @@ def gen_pkg_command(arg):
     # add package record to mysql
     now = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time()))
     PackageLogModel.objects.create(project_id=arg['pid'],
-                                       msg=pkg_msg,
-                                       puser=arg['puser'],
-                                       ptime=now,
-                                       tag=tag,
-                                       env=arg['pkg_env'],
-                                       module=mod_name,
-                                       br=arg['pkg_br']).save()
+                                   msg=pkg_msg,
+                                   puser=arg['puser'],
+                                   ptime=now,
+                                   tag=tag,
+                                   env=arg['pkg_env'],
+                                   module=mod_name,
+                                   br=arg['pkg_br']).save()
 
     m = mvn.Mvn(name=p.name, ptype=p.p_type)
     pkg_name = m.get_pkg_name(mod_name)
-
 
     save_path = get_save_path(arg['pkg_env'])
     script = os.path.join(BASE_DIR, 'scripts/package.sh')

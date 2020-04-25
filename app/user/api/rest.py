@@ -1,7 +1,7 @@
 # -- condig:UTF-8 --*--
 from rest_framework.views import APIView
 from utils.func import JsonResponse, isExistInDict
-from utils.func import jsonDataUpdateModel
+from utils.func import jsonDataUpdateModel, delLruCache
 from rest_framework import generics, status
 import base64
 from app.user.models import UserModel
@@ -63,10 +63,10 @@ class UsersRegisterAPI(APIView):
             email=email,
             password=base64.b64decode(passwd).decode('utf-8'),
             mobile=mobile)
-        u.save()
+        print(u.save())
 
-        sz = UserModelSerializer(data)
-        del USERLRUCACHE['userlist']
+        sz = UserModelSerializer(jd)
+        delLruCache(USERLRUCACHE, 'userlist')
         return JsonResponse(code=200, msg="Register success", data=sz.data)
 
 
@@ -98,7 +98,7 @@ class UserDetailUpdateAPI(APIView):
         except Exception as e:
             return JsonResponse(code=500, msg=str(e))
 
-        del USERLRUCACHE['userlist']
+        delLruCache(USERLRUCACHE, 'userlist')
         return JsonResponse(code=200, msg="success")
 
 
@@ -108,5 +108,5 @@ class UserDetailDeleteAPI(APIView):
             return JsonResponse(code=200, msg="User not find")
 
         UserModel.objects.filter(id=pk).delete()
-        del USERLRUCACHE['userlist']
+        delLruCache(USERLRUCACHE, 'userlist')
         return JsonResponse(code=200, msg="success")
