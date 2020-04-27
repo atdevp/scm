@@ -4,10 +4,10 @@ from utils.func import JsonResponse
 from rest_framework.authtoken.views import AuthTokenSerializer
 from rest_framework import serializers
 from django.contrib.auth import authenticate
-from lru import LruCache
+
 import cfg
 
-TOKENEXPIRELRUCACHE = LruCache(maxsize=100000, expires=300)
+from app.permission.token import TOKENEXPIRELRUCACHE
 
 
 class AutoTokenCreateAPI(ObtainAuthToken):
@@ -23,15 +23,11 @@ class AutoTokenCreateAPI(ObtainAuthToken):
         if not u.is_active:
             return JsonResponse(code=403, msg="用户未激活,禁止获取Token")
 
-        data = {'uid': u.pk, 'email': u.email, 'access_token': ''}
-        if u.pk in TOKENEXPIRELRUCACHE.keys():
-            data['access_token'] = TOKENEXPIRELRUCACHE[u.pk]
-            return JsonResponse(code=200, data=data, msg="success")
-
+        data = {'uid':u.pk, 'email': u.email, 'access_token': ''}
         token, _ = Token.objects.get_or_create(user=u)
         if not token:
-            return JsonResponse(code=400, data=data, msg="success")
+            return JsonResponse(code=400, data=data, msg="创建Token失败")
 
         data['access_token'] = token.key
-        TOKENEXPIRELRUCACHE.add(key=u.pk, value=token.key, expires=cfg.API_TOKEN['expire'])
+        TOKENEXPIRELRUCACHE.add(key=token.key, value=token, expires=cfg.API_TOKEN['expire'])
         return JsonResponse(code=200, data=data, msg="success")

@@ -1,0 +1,81 @@
+
+# 自定义token验证
+
+from rest_framework.authentication import TokenAuthentication
+from rest_framework import exceptions, HTTP_HEADER_ENCODING
+from rest_framework import status
+from lru import LruCache
+
+
+TOKENEXPIRELRUCACHE = LruCache(maxsize=100000, expires=300)
+
+class AuthenticationFailed(exceptions.APIException):
+    status_code = status.HTTP_200_OK
+    default_detail = {'code': 401, 'message': 'Invalid token.', 'data': ''}
+    default_code = 'authentication_failed'
+
+def get_authorization_header(request):
+
+    auth = request.META.get('HTTP_AUTHORIZATION', b'')
+    if isinstance(auth, str):
+        # Work around django test client oddness
+        auth = auth.encode(HTTP_HEADER_ENCODING)
+    return auth
+
+def cache_get(key):
+    # print(key)
+    # t = TOKENEXPIRELRUCACHE[key]
+    # print(t)
+    # 5 1  cache改成redis
+    return
+
+class SCMTokenAuthentication(TokenAuthentication):
+
+    keyword = 'Token'
+    model = None
+
+    def get_model(self):
+        if self.model is not None:
+            return self.model
+        from rest_framework.authtoken.models import Token
+        return Token
+
+    def authenticate(self, request):
+        auth = get_authorization_header(request).split()
+
+        if not auth or auth[0].lower() != self.keyword.lower().encode():
+            raise AuthenticationFailed('Invalid token header. No credentials provided.')
+
+        if len(auth) == 1:
+            raise AuthenticationFailed('Invalid token header. No credentials provided.')
+        elif len(auth) > 2:
+            raise AuthenticationFailed('Invalid token header. Token string should not contain spaces.')
+
+        try:
+            token = auth[1].decode()
+        except UnicodeError:
+            raise AuthenticationFailed('Invalid token header. Token string should not contain invalid characters.')
+
+        return self.authenticate_credentials(token)
+
+    def authenticate_credentials(self, key):
+
+        token = None
+        token = cache_get(key)
+        if token:
+            print("token from cache")
+            return (token.user, token)
+
+        model = self.get_model()
+        try:
+            token = model.objects.select_related('user').get(key=key)
+        except model.DoesNotExist:
+            raise AuthenticationFailed('Invalid token.')
+
+        if not token.user.is_active:
+            raise AuthenticationFailed('User inactive or deleted.')
+
+        return (token.user, token)
+
+    def authenticate_header(self, request):
+        return self.keyword

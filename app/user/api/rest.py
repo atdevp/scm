@@ -11,10 +11,14 @@ import time
 import pickle
 import pylru
 
+from app.permission.token import SCMTokenAuthentication
+
 USERLRUCACHE = pylru.lrucache(size=100)
 
 
 class UsersListAPI(APIView):
+
+    authentication_classes = (SCMTokenAuthentication,)
     def get(self, request, format=None):
         if "userlist" in USERLRUCACHE.keys():
             data = pickle.loads(USERLRUCACHE['userlist'])
