@@ -15,3 +15,7 @@ CICD_CFG = {
     "DEVELOP_PACKAGE": os.path.join(CI_WORKSPACE, "develop_package"),
     "STATING_PACKAGE": os.path.join(CI_WORKSPACE, "stating_package")
 }
+
+API_TOKEN = {
+    'expire': 10
+}

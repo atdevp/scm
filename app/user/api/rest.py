@@ -3,6 +3,7 @@ from rest_framework.views import APIView
 from utils.func import JsonResponse, isExistInDict
 from utils.func import jsonDataUpdateModel, delLruCache
 from rest_framework import generics, status
+from django.contrib.auth import authenticate, login, logout
 import base64
 from app.user.models import UserModel
 from app.user.serializers import UserModelSerializer
@@ -31,32 +32,32 @@ class UsersRegisterAPI(APIView):
         if request.META.get('CONTENT_TYPE') \
             != "application/json":
             return JsonResponse(
-                code=500, msg="Http header content-type not application/json")
+                code=400, msg="Http header content-type not application/json")
 
         if not isinstance(jd, dict):
-            return JsonResponse(code=500, msg="Post body not json format")
+            return JsonResponse(code=400, msg="Post body not json format")
 
         if not isExistInDict(jd, "username"):
-            return JsonResponse(code=500, msg="缺少usernmae参数")
+            return JsonResponse(code=400, msg="缺少usernmae参数")
 
         if not isExistInDict(jd, "passwd"):
-            return JsonResponse(code=500, msg="缺少passwd参数")
+            return JsonResponse(code=400, msg="缺少passwd参数")
 
         username, passwd = jd['username'], jd['passwd']
         email, mobile = jd['email'], jd['mobile']
 
         if username == "" or passwd == "" or \
             email == "" or mobile == "":
-            return JsonResponse(code=500, msg="字段不能为空")
+            return JsonResponse(code=400, msg="字段不能为空")
 
         if UserModel.objects.filter(username=username).exists():
-            return JsonResponse(code=500, msg="用户名{0}已不存".format(username))
+            return JsonResponse(code=400, msg="用户名{0}已不存".format(username))
 
         if UserModel.objects.filter(email=email).exists():
-            return JsonResponse(code=500, msg="邮箱{0}已不存".format(email))
+            return JsonResponse(code=400, msg="邮箱{0}已不存".format(email))
 
         if UserModel.objects.filter(mobile=mobile).exists():
-            return JsonResponse(code=500, msg="手机号{0}已不存".format(mobile))
+            return JsonResponse(code=400, msg="手机号{0}已不存".format(mobile))
 
         u = UserModel.objects.create_user(
             username=username,
@@ -70,10 +71,41 @@ class UsersRegisterAPI(APIView):
         return JsonResponse(code=200, msg="Register success", data=sz.data)
 
 
+class UserLoginAPI(APIView):
+    def post(self, request, format=None):
+        if request.META.get('CONTENT_TYPE') \
+            != "application/json":
+            return JsonResponse(
+                code=400, msg="Http header content-type not application/json")
+
+        jd = request.data
+        if not isinstance(jd, dict):
+            return JsonResponse(code=400, msg="Post body not json format")
+
+        email, passwd = jd['email'], jd['password']
+        u = authenticate(email=email, password=passwd)
+        if not u:
+            return JsonResponse(code=403, msg="验证失败，禁止登录")
+        if not u.is_active:
+            return JsonResponse(code=403, msg="用户未激活")
+        
+        login(request, u)
+        request.session['is_login'] = True
+        return JsonResponse(code=200, msg="用户登录成功")
+
+
+class UserLogoutAPI(APIView):
+    def get(self, request, format=None):
+        logout(request)
+        request.session['is_login'] = False
+        return JsonResponse(code=200, msg="退出登录成功")
+
+
+
 class UserDetailListAPI(APIView):
     def get(self, request, pk, format=None):
         if not UserModel.objects.filter(id=pk).exists():
-            return JsonResponse(code=500, msg="User not find")
+            return JsonResponse(code=400, msg="User not find")
 
         u = UserModel.objects.get(id=pk)
         sz = UserModelSerializer(u)
@@ -83,7 +115,7 @@ class UserDetailListAPI(APIView):
 class UserDetailUpdateAPI(APIView):
     def post(self, request, pk, format=None):
         if not UserModel.objects.filter(id=pk).exists():
-            return JsonResponse(code=500, msg="User not find")
+            return JsonResponse(code=400, msg="User not find")
 
         jd = request.data
 
@@ -105,7 +137,7 @@ class UserDetailUpdateAPI(APIView):
 class UserDetailDeleteAPI(APIView):
     def get(self, request, pk, format=None):
         if not UserModel.objects.filter(id=pk).exists():
-            return JsonResponse(code=200, msg="User not find")
+            return JsonResponse(code=400, msg="User not find")
 
         UserModel.objects.filter(id=pk).delete()
         delLruCache(USERLRUCACHE, 'userlist')
