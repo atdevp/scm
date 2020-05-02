@@ -13,6 +13,8 @@ https://docs.djangoproject.com/en/3.0/ref/settings/
 import os
 import cfg
 
+import utils.init as _
+
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -41,9 +43,11 @@ INSTALLED_APPS = [
     'rest_framework',
     'rest_framework.authtoken',
     'app.user',
+    'app.tokens',
     'app.asset',
     'app.project',
-    'app.permission'
+    'app.menu',
+    'app.rbac'
 ]
 
 
@@ -58,14 +62,6 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
-# REST_FRAMEWORK = {
-#     'DEFAULT_PERMISSION_CLASSES': (
-#         'rest_framework.permissions.IsAuthenticated', #必须有
-#     ),
-#     'DEFAULT_AUTHENTICATION_CLASSES': (
-#         'rest_framework.authentication.TokenAuthentication',
-#     )
-# }
 
 ROOT_URLCONF = 'scm.urls'
 
@@ -103,6 +99,16 @@ DATABASES = {
         'TIME_ZONE': 'Asia/Shanghai',
 
     }
+}
+
+
+
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.memcached.MemcachedCache',
+        'LOCATION': '10.211.55.3:11211',
+        'DEFAULT_TIMEOUT': 10
+    },
 }
 
 
@@ -150,3 +156,37 @@ STATICFILES_DIRS = ("%s/%s" % (BASE_DIR, "static"), )
 AUTH_USER_MODEL='user.UserModel'
 
 APPEND_SLASH=False
+
+# Django logger configuration
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'filter': {
+
+    },
+    'formatters': {
+        'verbose': {
+            'format': '%(asctime)s  %(levelname)s %(message)s',
+            'datefmt': '[%Y-%m-%d %H:%M:%S]',
+        }
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'level': 'INFO',
+            'formatter': 'verbose'
+        },
+    },
+    'loggers': {
+        'scm': {
+            'handlers': ['console'],
+            'level': os.getenv('DJANGO_LOG_LEVEL', 'INFO'),
+            'propagate': False,
+        },
+        'django.server': {
+            'handlers': ['console'],
+            'level': os.getenv('DJANGO_LOG_LEVEL', 'INFO'),
+            'propagate': False,
+        }
+    },
+}

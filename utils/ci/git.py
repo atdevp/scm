@@ -2,7 +2,7 @@
 
 import os
 import subprocess
-from utils.error import CloneError, PullError, CheckoutError, CommitError, GitWorkSpacePathNotFind
+from utils.exceptions import CloneError, PullError, CheckoutError, CommitError, GitWorkSpacePathNotFind
 import cfg
 
 def shell(*args, **kwargs):

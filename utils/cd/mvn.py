@@ -1,8 +1,8 @@
 import os
 import xml.dom.minidom
 import cfg
-from utils.error import MvnParametersNotFind, MvnProjectNotFind, MvnModPathNotFind
-from utils.error import MvnPomFileNotFind, MvnFinalNameFieldNotFind, MvnPackagingFieldNotFind
+from utils.exceptions import MvnParametersNotFind, MvnProjectNotFind, MvnModPathNotFind
+from utils.exceptions import MvnPomFileNotFind, MvnFinalNameFieldNotFind, MvnPackagingFieldNotFind
 
 
 class Mvn(object):
@@ -27,7 +27,7 @@ class Mvn(object):
         p = os.path.join(self.ws_path, self.name)
         if not os.path.isdir(p):
             raise MvnProjectNotFind("{} path not find".format(p))
-        
+
         os.chdir(p)
         if not os.path.exists("pom.xml"):
             raise MvnPomFileNotFind("pom.xml file not find")

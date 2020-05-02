@@ -55,6 +55,14 @@ class UserModel(AbstractBaseUser, PermissionsMixin):
 
     def natural_key(self):
         return (self.get_username(), )
+    
+    def json(self):
+        return {
+            'id': self.pk,
+            'email': self.email,
+            'username': self.username,
+            'mobile': self.mobile
+        }
 
     @property
     def is_authenticated(self):

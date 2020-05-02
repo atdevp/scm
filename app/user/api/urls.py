@@ -1,7 +1,7 @@
 from django.urls import path, re_path
-from .rest import UsersListAPI, UsersRegisterAPI, UserDetailListAPI
-from .rest import UserDetailUpdateAPI, UserDetailDeleteAPI, UserLoginAPI
-from .rest import UserLogoutAPI
+from app.user.api.rest import UsersListAPI, UsersRegisterAPI, UserDetailListAPI
+from app.user.api.rest import UserDetailUpdateAPI, UserDetailDeleteAPI, UserLoginAPI
+from app.user.api.rest import UserLogoutAPI
 
 
 urlpatterns = [
