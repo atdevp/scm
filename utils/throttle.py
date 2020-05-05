@@ -1,8 +1,9 @@
 from utils.init import RedisPool
 import time
 
-
 visit = {}
+
+
 class IPRateThrottle(object):
     def __init__(self):
         if not RedisPool:
@@ -11,7 +12,6 @@ class IPRateThrottle(object):
             self.cache = {'name': None, 'type': 'local'}
 
         self.rate = 3  # 3/s
-
 
     def allow_request(self, request, view):
         ip = request.META.get('REMOTE_ADDR')
@@ -24,11 +24,11 @@ class IPRateThrottle(object):
                 return True
 
             history = visit.get(ip)
-            print("histroy", history)
+
             length = len(history)
-            while length>0 and ctime - history[-1] > 60:
+            while length > 0 and ctime - history[-1] > 1:
                 history.pop(0)
-                length-=1
+                length -= 1
 
             if len(history) < self.rate:
                 history.append(ctime)
@@ -43,7 +43,7 @@ class IPRateThrottle(object):
 
         length = cli.llen(ip)
         while length > 0 and ctime - float(
-                cli.lindex(ip, length - 1).decode('UTF-8')) > 60:
+                cli.lindex(ip, length - 1).decode('UTF-8')) > 1:
             cli.lpop(ip)
             length = length - 1
 
