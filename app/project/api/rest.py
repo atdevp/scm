@@ -8,23 +8,45 @@ from utils.ci import git
 from utils.cd import mvn
 from utils.func import del_resource, JsonResponse, get_save_path
 from utils.func import jsonDataUpdateModel
-import cfg
-import os
 from django.db import transaction, DatabaseError
 from utils.exceptions import GeneratePakcageCommandError
 from scm.settings import BASE_DIR
+from app.tokens.tokens import SCMTokenAuthentication
+from rest_framework.authtoken.models import Token
+from rest_framework.permissions import IsAuthenticated, IsAdminUser
+from utils.throttle import IPRateThrottle
+from utils.pagination import MyPagination
+from rest_framework import filters
 import traceback
 import time
-
-
+import cfg
+import os
 
 
 class ProjectList(APIView):
+    permission_classes = (
+        IsAuthenticated,
+        IsAdminUser,
+    )
+    authentication_classes = (SCMTokenAuthentication, )
+    throttle_classes = (IPRateThrottle, )
+
     def get(self, request, format=None):
-        projects = ProjectModel.objects.all()
-        sz = ProjectSerializer(projects, many=True)
-        
-        return JsonResponse(data=sz.data, code=200, msg="success")
+        pagination_class = MyPagination()
+        search_class = filters.SearchFilter()
+
+        projects = ProjectModel.objects.all().order_by('id')
+        self.search_fields = ['url', 'name', 'p_type']
+
+        search_query = search_class.filter_queryset(request, projects, self)
+        page_query = pagination_class.paginate_queryset(queryset=search_query,
+                                                        request=request,
+                                                        view=self)
+
+        sz = ProjectSerializer(page_query, many=True)
+        res = pagination_class.get_paginated_response(sz.data)
+
+        return JsonResponse(data=res, code=200, msg="success")
 
     def post(self, request, format=None):
         data = request.data
@@ -40,7 +62,10 @@ class ProjectList(APIView):
             return JsonResponse(code=200, msg="success")
 
         try:
-            p = ProjectModel.objects.create(name=name, url=url, p_type=p_type, creator="request.user.email")
+            p = ProjectModel.objects.create(name=name,
+                                            url=url,
+                                            p_type=p_type,
+                                            creator="request.user.email")
             p.save()
         except DatabaseError as e:
             return JsonResponse(code=500, msg=str(e))
@@ -48,7 +73,8 @@ class ProjectList(APIView):
         try:
             g.clone()
         except git.CloneError as e:
-            ProjectModel.objects.filter(name=name, url=url, p_type=p_type).delete()
+            ProjectModel.objects.filter(name=name, url=url,
+                                        p_type=p_type).delete()
             return JsonResponse(code=500, msg=str(e))
 
         return JsonResponse(code=200, msg="success")
@@ -97,7 +123,13 @@ class ProjectPostBuild(APIView):
             return JsonResponse(code=500, msg=str(e))
 
         nv = get_new_tag(pk)
-        return JsonResponse(data={"mods": mods, "new_tag": nv, "type": p.p_type}, code=200, msg="success")
+        return JsonResponse(data={
+            "mods": mods,
+            "new_tag": nv,
+            "type": p.p_type
+        },
+                            code=200,
+                            msg="success")
 
     def post(self, request, pk, format=None):
         d = request.data
@@ -137,16 +169,14 @@ def gen_pkg_command(arg):
 
     # add package record to mysql
     now = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time()))
-    PackageLogModel.objects.create(
-        project_id=arg['pid'],
-        msg=pkg_msg,
-        puser=arg['puser'],
-        ptime=now,
-        tag=tag,
-        env=arg['pkg_env'],
-        module=mod_name,
-        br=arg['pkg_br']
-    ).save()
+    PackageLogModel.objects.create(project_id=arg['pid'],
+                                   msg=pkg_msg,
+                                   puser=arg['puser'],
+                                   ptime=now,
+                                   tag=tag,
+                                   env=arg['pkg_env'],
+                                   module=mod_name,
+                                   br=arg['pkg_br']).save()
 
     m = mvn.Mvn(name=p.name, ptype=p.p_type)
     pkg_name = m.get_pkg_name(mod_name)
@@ -154,11 +184,9 @@ def gen_pkg_command(arg):
     save_path = get_save_path(arg['pkg_env'])
     script = os.path.join(BASE_DIR, 'scripts/package.sh')
 
-    cmd = '{0} {1} {2} {3} {4} {5} {6} {7}'.format(
-        script, p.name, mod_name,
-        arg['pkg_env'], tag,
-        pkg_name, save_path,
-        arg['is_or_dependent']
-    )
+    cmd = '{0} {1} {2} {3} {4} {5} {6} {7}'.format(script, p.name, mod_name,
+                                                   arg['pkg_env'], tag,
+                                                   pkg_name, save_path,
+                                                   arg['is_or_dependent'])
 
     return cmd
