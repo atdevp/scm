@@ -1,17 +1,24 @@
 # -- condig:UTF-8 --*--
 from rest_framework.views import APIView
+from rest_framework.response import Response
 from utils.func import JsonResponse, isExistInDict
 from utils.func import jsonDataUpdateModel
 from rest_framework import generics, status
 from django.contrib.auth import authenticate, login, logout
-import base64
+from django.core.paginator import Paginator
 from app.user.models import UserModel
 from app.user.serializers import UserModelSerializer
-import time
+from rest_framework.pagination import PageNumberPagination
 from utils.init import RedisPool
 from app.tokens.tokens import SCMTokenAuthentication
 from rest_framework.authtoken.models import Token
+from rest_framework.permissions import IsAuthenticated, IsAdminUser
+from utils.throttle import IPRateThrottle
+from utils.pagination import MyPagination
+from rest_framework import filters
 import pickle
+import base64
+import time
 import cfg
 
 
@@ -60,12 +67,12 @@ class UsersRegisterAPI(APIView):
 
 
 class UserLoginAPI(APIView):
-
     def post(self, request, format=None):
 
         jd = request.data
         if not isinstance(jd, dict):
-            return JsonResponse(code=400, msg="Content-Type格式非application/json")
+            return JsonResponse(code=400,
+                                msg="Content-Type格式非application/json")
 
         lists = ['email', 'password']
         if sorted(lists) != sorted(list(jd.keys())):
@@ -85,8 +92,8 @@ class UserLoginAPI(APIView):
             if token:
                 result['access_token'] = pickle.loads(token).key
             else:
-                token  = Token.objects.filter(user_id=u.pk).get()
-                result['access_token'] = token.key  
+                token = Token.objects.filter(user_id=u.pk).get()
+                result['access_token'] = token.key
                 RedisPool.set(u.pk, pickle.dumps(token))
             return JsonResponse(code=200, msg="登录成功", data=result)
         else:
@@ -97,14 +104,13 @@ class UserLoginAPI(APIView):
         return JsonResponse(code=200, msg="登录成功", data=result)
 
 
-class UserLogoutAPI(APIView):
-    def get(self, request, format=None):
-        logout(request)
-        request.session['is_login'] = False
-        return JsonResponse(code=200, msg="退出登录成功")
-
-
 class UserDetailListAPI(APIView):
+    permission_classes = (
+        IsAuthenticated,
+        IsAdminUser,
+    )
+    authentication_classes = (SCMTokenAuthentication, )
+
     def get(self, request, pk, format=None):
         if not UserModel.objects.filter(id=pk).exists():
             return JsonResponse(code=400, msg="User not find")
@@ -147,9 +153,29 @@ class UserDetailDeleteAPI(APIView):
 
 class UsersListAPI(APIView):
 
+    permission_classes = (
+        IsAuthenticated,
+        IsAdminUser,
+    )
     authentication_classes = (SCMTokenAuthentication, )
+    throttle_classes = (IPRateThrottle, )
 
     def get(self, request, format=None):
-        users = UserModel.objects.all()
-        sz = UserModelSerializer(users, many=True)
-        return JsonResponse(code=200, msg="success", data=sz.data)
+        pagination_class = MyPagination()
+        search_class = filters.SearchFilter()
+
+        users = UserModel.objects.all().order_by("id")
+
+        self.search_fields = ['email', 'mobile']
+
+        search_query = search_class.filter_queryset(request, users, self)
+        page_query = pagination_class.paginate_queryset(queryset=search_query,
+                                                        request=request,
+                                                        view=self)
+
+        sz = UserModelSerializer(page_query, many=True)
+        
+        res = pagination_class.get_paginated_response(sz.data)
+
+        return JsonResponse(code=200, msg="success", data=res)
+
