@@ -114,7 +114,14 @@ class ProjectDetail(APIView):
         return JsonResponse(code=200, msg="success")
 
 
-class ProjectPostBuild(APIView):
+class ProjectPostBuildAPI(APIView):
+    permission_classes = (
+        IsAuthenticated,
+        IsAdminUser,
+    )
+    authentication_classes = (SCMTokenAuthentication, )
+    throttle_classes = (IPRateThrottle, )
+
     def get(self, request, pk, format=None):
         mods = []
 
@@ -127,70 +134,82 @@ class ProjectPostBuild(APIView):
             return JsonResponse(code=500, msg=str(e))
 
         nv = get_new_tag(pk)
-        return JsonResponse(data={
+        return JsonResponse(
+            data={
             "mods": mods,
             "new_tag": nv,
             "type": p.p_type
-        },
-                            code=200,
-                            msg="success")
+            },
+            code=200,
+            msg="success"
+        )
+
+
+class ProjectPostGetCompileCommandAPI(APIView):
+    permission_classes = ( IsAuthenticated, IsAdminUser,)
+    authentication_classes = (SCMTokenAuthentication, )
+    throttle_classes = (IPRateThrottle, )
 
     def post(self, request, pk, format=None):
-        d = request.data
-        pkg_user = "request.user.email"
+        jd = request.data
+        pkg_user = request.user.email
+
+        if not isinstance(jd, dict):
+            return JsonResponse(code=400, msg="Invalid post body format")
 
         cmd = ""
-        d['pid'] = pk
+        jd['pid'] = pk
+        jd['pkg_user'] = pkg_user
         try:
-            cmd = gen_pkg_command(d)
+            cmd = gen_pkg_command(jd)
         except Exception as e:
             traceback.print_exc()
             return JsonResponse(code=500, msg=str(e))
 
-        return JsonResponse(code=200, msg="success", data=cmd)
+        return JsonResponse(code=200, msg="success", data={"command": cmd})
 
 
 def gen_pkg_command(arg):
 
-    if not ProjectModel.objects.filter(id=arg['pid']).exists():
+    if not ProjectModel.objects.filter(id=arg['project']).exists():
         raise GeneratePakcageCommandError("project not find")
 
-    p = ProjectModel.objects.get(id=arg['pid'])
+    p = ProjectModel.objects.get(id=arg['project'])
 
-    tag = arg['pkg_tag'] if arg['pkg_env'] == "online" else None
-    mod_name = arg['pkg_mod'] if 'pkg_mod' in arg.keys() else None
-    pkg_msg = arg['pkg_msg'] if 'pkg_msg' in arg.keys() else None
+    version = arg['version'] if arg['scheme'] == "online" else None
+    module = arg['module'] if not arg['module'] else None
+    info = arg['info'] if 'info' in arg.keys() else None
 
     pro_path = os.path.join(cfg.CICD_CFG['SRC_CODE_PATH'], p.name)
 
     if not os.path.exists(pro_path):
         g = git.Git(url=p.url)
         g.clone()
-        g.checkout(br=arg['pkg_br'])
-        g.pull(br=arg['pkg_br'])
+        g.checkout(br=arg['branch'])
+        g.pull(br=arg['branch'])
 
-    arg['name'], arg['puser'] = p.name, 'request.user.email'
+    # arg['name'], arg['puser'] = p.name, request.user.email
 
     # add package record to mysql
     now = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time()))
-    PackageLogModel.objects.create(project_id=arg['pid'],
-                                   msg=pkg_msg,
-                                   puser=arg['puser'],
+    PackageLogModel.objects.create(project_id=arg['project'],
+                                   msg=info,
+                                   puser=arg['pkg_user'],
                                    ptime=now,
-                                   tag=tag,
-                                   env=arg['pkg_env'],
-                                   module=mod_name,
-                                   br=arg['pkg_br']).save()
+                                   tag=version,
+                                   env=arg['scheme'],
+                                   module=module,
+                                   br=arg['branch']).save()
 
     m = mvn.Mvn(name=p.name, ptype=p.p_type)
-    pkg_name = m.get_pkg_name(mod_name)
+    pkg_name = m.get_pkg_name(module)
 
-    save_path = get_save_path(arg['pkg_env'])
+    save_path = get_save_path(arg['scheme'])
     script = os.path.join(BASE_DIR, 'scripts/package.sh')
 
-    cmd = '{0} {1} {2} {3} {4} {5} {6} {7}'.format(script, p.name, mod_name,
-                                                   arg['pkg_env'], tag,
+    cmd = '{0} {1} {2} {3} {4} {5} {6} {7}'.format(script, p.name, module,
+                                                   arg['scheme'], version,
                                                    pkg_name, save_path,
-                                                   arg['is_or_dependent'])
+                                                   arg['dependence'])
 
     return cmd
