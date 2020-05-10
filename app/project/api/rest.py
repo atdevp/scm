@@ -49,35 +49,39 @@ class ProjectList(APIView):
         return JsonResponse(data=res, code=200, msg="success")
 
     def post(self, request, format=None):
-        data = request.data
-        url, p_type = data['url'], data['type']
-        print(url, p_type)
+        jd = request.data
+        if not isinstance(jd, dict):
+            return JsonResponse(code=400, msg="Invalid post body format")
+
+        url, func, p_type = jd['url'], jd['func'], jd['type']
+        
+
         name = url.split("/")[-1].split(".")[0] if url else None
 
         code_path = cfg.CICD_CFG['SRC_CODE_PATH']
-        g = git.Git(url, code_path)
-
         if os.path.exists(os.path.join(code_path, name)) and \
                 ProjectModel.objects.filter(name=name).exists():
-            return JsonResponse(code=200, msg="success")
+            return JsonResponse(code=201, msg="success", data=jd)
 
         try:
             p = ProjectModel.objects.create(name=name,
                                             url=url,
                                             p_type=p_type,
-                                            creator="request.user.email")
+                                            creator=request.user.email,
+                                            func=func)
             p.save()
         except DatabaseError as e:
             return JsonResponse(code=500, msg=str(e))
 
         try:
+            g = git.Git(url)
             g.clone()
         except git.CloneError as e:
             ProjectModel.objects.filter(name=name, url=url,
                                         p_type=p_type).delete()
             return JsonResponse(code=500, msg=str(e))
 
-        return JsonResponse(code=200, msg="success")
+        return JsonResponse(code=201, msg="success", data=jd)
 
 
 class ProjectDetail(APIView):

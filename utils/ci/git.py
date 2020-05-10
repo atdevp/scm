@@ -19,7 +19,7 @@ def shell(*args, **kwargs):
 class Git:
     def __init__(self, url=None):
         self.url = url
-        self.ws_path = cfg['CICD_CFG']['SRC_CODE_PATH']
+        self.ws_path = cfg.CICD_CFG['SRC_CODE_PATH']
 
         if not os.path.exists(self.ws_path):
             raise GitWorkSpacePathNotFind("%s not find", self.ws_path)
@@ -28,9 +28,12 @@ class Git:
             os.chdir(self.ws_path)
 
     def __metaname(self):
-        return self.url.split('/')[-1].split['.'][0]
+        return self.url.split('/')[-1].split('.')[0]
 
     def clone(self):
+
+        if os.path.exists(os.path.join(self.ws_path, self.__metaname())):
+            return
         
         cmd = 'git clone --recursive '+ self.url
         code, _, err = shell(cmd, shell=True, cwd=os.chdir(self.ws_path))

@@ -9,6 +9,7 @@ class ProjectModel(models.Model):
     PROJECT_TYPE_CHOICES = ((1, "jar"), (2, "war"), (3, "zip"))
 
     name = models.CharField(unique=True, max_length=50, db_index=True, default='')
+    func = models.CharField(max_length=100, null=True, blank=True)
     url = models.CharField(max_length=200, null=False, blank=False)
     p_type = models.CharField(max_length=5, null=False, blank=False)
     creator = models.EmailField()
