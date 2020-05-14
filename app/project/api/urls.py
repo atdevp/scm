@@ -11,5 +11,5 @@ urlpatterns = [
     re_path('^(?P<pk>[0-9]+)/delete.go$', ProjectDetail.as_view()), 
     re_path('^(?P<pk>[0-9]+)/pre/build.go$', ProjectPostBuildAPI.as_view()),
     re_path('^(?P<pk>[0-9]+)/post/getCompileCommand.go', ProjectPostGetCompileCommandAPI.as_view()),
-    re_path('^(?P<pk>[0-9]+)/post/build.go', output_compile_log)
+    re_path('post/build.go', output_compile_log)
 ]

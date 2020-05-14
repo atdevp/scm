@@ -58,7 +58,7 @@ class Git:
         if code != 0 :
             raise CheckoutError(err)
 
-        result = stdout.split('\n')[0:-1]
+        result = stdout.decode('utf-8').split('\n')[0:-1]
         brs = []
         for item in result:
             if item.startswith('* '):

@@ -165,6 +165,8 @@ class ProjectPostGetCompileCommandAPI(APIView):
         except Exception as e:
             traceback.print_exc()
             return JsonResponse(code=500, msg=str(e))
+        
+        print(cmd)
 
         return JsonResponse(code=200, msg="success", data={"command": cmd})
 
@@ -177,8 +179,8 @@ def gen_pkg_command(arg):
     p = ProjectModel.objects.get(id=arg['project'])
 
     version = arg['version'] if arg['scheme'] == "online" else None
-    module = arg['module'] if not arg['module'] else None
-    info = arg['info'] if 'info' in arg.keys() else None
+    module = arg['module'] if arg['module'] != "no-module" else None 
+    info = arg['info'] 
 
     pro_path = os.path.join(cfg.CICD_CFG['SRC_CODE_PATH'], p.name)
 
@@ -207,8 +209,8 @@ def gen_pkg_command(arg):
     save_path = get_save_path(arg['scheme'])
     script = os.path.join(BASE_DIR, 'scripts/package.sh')
 
-    cmd = '{0} {1} {2} {3} {4} {5} {6} {7}'.format(script, p.name, module,
-                                                   arg['scheme'], version,
+    cmd = '{0} -p {1} -m {2} -e {3} -v {4} -t {5} -s {6} -c {7}'.format(script, p.name, arg['module'],
+                                                   arg['scheme'], arg['version'],
                                                    pkg_name, save_path,
                                                    arg['dependence'])
 

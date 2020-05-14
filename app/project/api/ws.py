@@ -21,11 +21,12 @@ def run_shell_command(command, project_name):
 def output_compile_log(request):
     while True:
         data = request.websocket.wait()
+        print(data)
         s = data.decode('utf-8')[1:-1]  # 去掉引号
         L = s.split(' ')
         if len(L) < 2:
             request.websocket.send(data)
             request.websocket.send(b'LogEnd')
-        command, project_name = L[0], L[1]
+        command, project_name = L[0], L[2]
         for line in run_shell_command(s, project_name):
             request.websocket.send(line)
